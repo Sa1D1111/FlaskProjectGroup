@@ -85,20 +85,35 @@ def register():
 def login():
     if not request.json or 'username' not in request.json or 'password' not in request.json:
         return jsonify({'error': 'Username and password are required'}), 400
-    
+
     username = request.json['username']
     password = request.json['password']
 
-    if users.get(username) != password:
-        return jsonify({'error': 'Invalid password'}), 401
-    
+    user = users.get(username)
+
+    if not user or user['password'] != password:
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+    role = user.get('role', 'user')  # Default to 'user' if somehow missing
     session['username'] = username
     session.permanent = True
 
-    response = jsonify({'message': 'Login successful'})
-    response.set_cookie('username', username, httponly=True, max_age=1800)  # Set session cookie
-   
+    response_data = {'message': f'{role.capitalize()} login successful'}
+
+    # 🔐 If admin, generate JWT token
+    if role == 'admin':
+        token = jwt.encode(
+            {'username': username, 'role': role},
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+        response_data['token'] = token
+
+    response = jsonify(response_data)
+    response.set_cookie('username', username, httponly=True, max_age=1800)
+
     return response, 200
+
 
 
 # User logout endpoint and clears session and removes cookies
