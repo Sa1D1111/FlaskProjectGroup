@@ -109,7 +109,7 @@ def logout():
 @app.before_request
 def require_login():
     allowed_routes = ['login', 'register']  # Routes that don't require authentication
-    if request.endpoint not in allowed_routes and 'username' not in session:
+    if request.endpoint not in allowed_routes and 'user' not in session:
         return jsonify({'error': 'Unauthorized access. Please log in to view this resource.'}), 401
 
 # Get all items in inventory (logged in only)
