@@ -108,7 +108,7 @@ def logout():
 # Middleware
 @app.before_request
 def require_login():
-    allowed_routes = ['login', 'register', 'logout']  # Routes that don't require authentication
+    allowed_routes = ['login', 'register']  # Routes that don't require authentication
     if request.endpoint not in allowed_routes and 'user' not in session:
         return jsonify({'error': 'Unauthorized access. Please log in to view this resource.'}), 401
 

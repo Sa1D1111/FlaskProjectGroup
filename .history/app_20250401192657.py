@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, render_template, redirect, url_for, make_response
+from flask import Flask, request, jsonify, session, render_template, redirect, url_for, response
 import jwt
 import re
 from datetime import timedelta
@@ -90,27 +90,20 @@ def login():
     
     session['username'] = username
     session.permanent = True
-
-    response = jsonify({'message': 'Login successful'})
     response.set_cookie('username', username, httponly=True, max_age=1800)  # Set session cookie
    
-    return response, 200
+    return jsonify({
+        'message': 'Login successful'}), 200
 
 
 # User logout endpoint and clears session and removes cookies
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop('username', None)
-    response = jsonify({'message': 'Logout successful'})
     response.set_cookie('username', '', expires=0)  # Clear session cookie
-    return response, 200
+    return jsonify({'message': 'Logout successful'}), 200
 
 # Middleware
-@app.before_request
-def require_login():
-    allowed_routes = ['login', 'register', 'logout']  # Routes that don't require authentication
-    if request.endpoint not in allowed_routes and 'user' not in session:
-        return jsonify({'error': 'Unauthorized access. Please log in to view this resource.'}), 401
 
 # Get all items in inventory (logged in only)
 @app.route('/inventory', methods=['GET'])
