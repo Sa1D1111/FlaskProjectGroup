@@ -7,7 +7,6 @@ from flask_sqlalchemy import SQLAlchemy
 
 # Create a Flask application instance
 app = Flask(__name__)
-app.secret_key = '449flaskproject' 
 app.config['SECRET_KEY'] = '449flaskproject'
 app.config['SESSION_COOKIE_NAME'] = 'inventory_app_session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
@@ -21,7 +20,7 @@ inventory = []
 users = {}
 
 # In-memory data to store session
-#session = {}
+session = {}
 
 # Helper function to find item by item_id
 def find_item(item_id):
@@ -89,11 +88,14 @@ def login():
         return jsonify({'error': 'Invalid password'}), 401
     
     session['username'] = username
-    session.permanent = True
-   
-    return jsonify({
-        'message': 'Login successful'}), 200
+    return jsonify({'message': 'Login successful'}), 200
 
+@app.route('/welcome')
+def welcome():
+    if 'username' in session:
+        return render_template('welcome.html')
+    else:
+        return redirect(url_for('login'))
 
 # User logout endpoint and clears session and removes cookies
 @app.route('/logout', methods=['POST'])

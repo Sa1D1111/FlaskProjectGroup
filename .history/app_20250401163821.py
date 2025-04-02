@@ -92,8 +92,15 @@ def login():
     session.permanent = True
    
     return jsonify({
-        'message': 'Login successful'}), 200
+        'message': 'Login successful', 'redirect' : url_for('welcome')
+        }), 200
 
+@app.route('/welcome')
+def welcome():
+    if 'username' in session:
+        return render_template('welcome.html')
+    else:
+        return redirect(url_for('login'))
 
 # User logout endpoint and clears session and removes cookies
 @app.route('/logout', methods=['POST'])

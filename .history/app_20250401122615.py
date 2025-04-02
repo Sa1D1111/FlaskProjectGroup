@@ -1,13 +1,11 @@
-from flask import Flask, request, jsonify, session, render_template, redirect, url_for
+from flask import Flask, request, jsonify, session
 import jwt
 import re
 from datetime import timedelta
 from functools import wraps
-from flask_sqlalchemy import SQLAlchemy
 
 # Create a Flask application instance
 app = Flask(__name__)
-app.secret_key = '449flaskproject' 
 app.config['SECRET_KEY'] = '449flaskproject'
 app.config['SESSION_COOKIE_NAME'] = 'inventory_app_session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
@@ -21,7 +19,7 @@ inventory = []
 users = {}
 
 # In-memory data to store session
-#session = {}
+session = {}
 
 # Helper function to find item by item_id
 def find_item(item_id):
@@ -88,17 +86,13 @@ def login():
     if users.get(username) != password:
         return jsonify({'error': 'Invalid password'}), 401
     
-    session['username'] = username
-    session.permanent = True
-   
-    return jsonify({
-        'message': 'Login successful'}), 200
-
+    session['user'] = username
+    return jsonify({'message': 'Login successful'}), 200
 
 # User logout endpoint and clears session and removes cookies
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('username', None)
+    session.pop('user', None)
     return jsonify({'message': 'Logout successful'}), 200
 
 # Middleware
