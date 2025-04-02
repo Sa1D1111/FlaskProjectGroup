@@ -57,24 +57,28 @@ def token_required(f):
 def register():
     if not request.json or 'username' not in request.json or 'password' not in request.json:
         return jsonify({'error': 'Username and password are required'}), 400
-    
+
     username = request.json['username']
     password = request.json['password']
+    role = request.json.get('role', 'user')  # default to 'user'
 
-    # Check if username is a string
     if not isinstance(username, str):
         return jsonify({'error': 'Username must be a string'}), 400
-    
-    # Validate password
+
     if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return jsonify({'error': 'Password contain a special character (e.g. !@#$%^&*(),.?\":{}|<>) and be at least 8 characters long.'}), 400
+        return jsonify({'error': 'Password must contain a special character and be at least 8 characters long.'}), 400
 
     if username in users:
         return jsonify({'error': 'User already exists'}), 400
-    
-    # Insert user into memory
-    users[username] = password
-    return jsonify({'message': 'User has been successfully registered'}), 201
+
+    # ✅ Store user as a dictionary with password and role
+    users[username] = {
+        'password': password,
+        'role': role
+    }
+
+    return jsonify({'message': f'User has been successfully registered as {role}'}), 201
+
 
 # User login endpoint and get a JWT token
 @app.route('/login', methods=['POST'])
