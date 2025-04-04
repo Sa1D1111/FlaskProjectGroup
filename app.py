@@ -143,7 +143,7 @@ def create_item(current_user):
     if not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
     if not isinstance(request.json['quantity'], int) or not (0 <= request.json['quantity']):
-        return jsonify({'error': 'Price must be zero or a positive integer'}), 400
+        return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
     
@@ -182,7 +182,7 @@ def update_item(current_user, item_id):
     if 'description' in request.json and not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
     if 'quantity' in request.json and (not isinstance(request.json['quantity'], int) or not (0 <= request.json['quantity'])):
-        return jsonify({'error': 'Price must be zero or a positive integer'}), 400
+        return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if 'price' in request.json and not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
 
