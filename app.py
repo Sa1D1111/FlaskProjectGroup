@@ -98,7 +98,7 @@ def login():
 # User logout endpoint and clears session and removes cookies
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('username', None)
+    session.pop('user', None)
     response = jsonify({'message': 'Logout successful'})
     response.set_cookie('username', '', expires=0)  # Clear session cookie
     return response, 200
