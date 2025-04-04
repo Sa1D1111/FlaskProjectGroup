@@ -20,7 +20,7 @@ users = {}
 
 # Helper function to find item by item_id
 def find_item(user, item_id):
-    user_inventory = inventory.get(user)
+    user_inventory = inventory.get(user, [])
     for item in user_inventory:
         if item['id'] == item_id:
             return item
@@ -117,7 +117,7 @@ def require_login():
 @app.route('/inventory', methods=['GET'])
 @token_required
 def get_items(current_user):
-    return jsonify(inventory.get(current_user))
+    return jsonify(inventory.get(current_user, []))
 
 
 # Get a single item by item_id (logged in only)
