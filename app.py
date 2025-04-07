@@ -13,14 +13,15 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = False
 
 # In-memory data to store inventory
-inventory = []
+inventory = {}
 
 # In-memory data to store users
 users = {}
 
 # Helper function to find item by item_id
-def find_item(item_id):
-    for item in inventory:
+def find_item(user, item_id):
+    user_inventory = inventory.get(user, [])
+    for item in user_inventory:
         if item['id'] == item_id:
             return item
     return None
@@ -98,7 +99,7 @@ def login():
 # User logout endpoint and clears session and removes cookies
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('username', None)
+    session.pop('user', None)
     response = jsonify({'message': 'Logout successful'})
     response.set_cookie('username', '', expires=0)  # Clear session cookie
     return response, 200
@@ -116,14 +117,14 @@ def require_login():
 @app.route('/inventory', methods=['GET'])
 @token_required
 def get_items(current_user):
-    return jsonify(inventory)
+    return jsonify(inventory.get(current_user, []))
 
 
 # Get a single item by item_id (logged in only)
 @app.route('/inventory/<int:item_id>', methods=['GET'])
 @token_required
 def get_item(current_user, item_id):
-    item = find_item(item_id)
+    item = find_item(current_user, item_id)
     if item is None:
         return jsonify({'error': 'Item not found'}), 404
     return jsonify(item)
@@ -142,11 +143,17 @@ def create_item(current_user):
     if not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
     if not isinstance(request.json['quantity'], int) or not (0 <= request.json['quantity']):
-        return jsonify({'error': 'Price must be zero or a positive integer'}), 400
+        return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
     
-    item_id = max(item['id'] for item in inventory) + 1 if inventory else 1
+    # Handle first time item creation by a user
+    if current_user not in inventory:
+        inventory[current_user] = []
+
+    user_inventory = inventory[current_user]
+    item_id = max(item['id'] for item in user_inventory) + 1 if user_inventory else 1
+
     item = {
         'id': item_id,
         'name': request.json['name'],
@@ -155,7 +162,7 @@ def create_item(current_user):
         'price': request.json['price']
     }
 
-    inventory.append(item)
+    user_inventory.append(item)
     return jsonify(item), 201
 
 
@@ -163,7 +170,7 @@ def create_item(current_user):
 @app.route('/inventory/<int:item_id>', methods=['PUT'])
 @token_required
 def update_item(current_user, item_id):
-    item = find_item(item_id)
+    item = find_item(current_user, item_id)
     if item is None:
         return jsonify({'error': 'Item not found'}), 404
     
@@ -175,7 +182,7 @@ def update_item(current_user, item_id):
     if 'description' in request.json and not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
     if 'quantity' in request.json and (not isinstance(request.json['quantity'], int) or not (0 <= request.json['quantity'])):
-        return jsonify({'error': 'Price must be zero or a positive integer'}), 400
+        return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if 'price' in request.json and not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
 
@@ -187,10 +194,10 @@ def update_item(current_user, item_id):
 @app.route('/inventory/<int:item_id>', methods=['DELETE'])
 @token_required
 def delete_item(current_user, item_id):
-    item = find_item(item_id)
+    item = find_item(current_user, item_id)
     if item is None:
         return jsonify({'error': 'Item not found'}), 404
-    inventory.remove(item)
+    inventory[current_user].remove(item)
     return jsonify({'message': 'Item successfully deleted'}), 200
 
 
