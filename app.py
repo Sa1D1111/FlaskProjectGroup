@@ -1,13 +1,11 @@
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, make_response
-import jwt
 import re
-from datetime import timedelta
+import datetime
 from functools import wraps
-from flask_sqlalchemy import SQLAlchemy
+from datetime import timedelta
+import jwt
 
-# Create a Flask application instance
 app = Flask(__name__)
-app.secret_key = '449flaskproject' 
 app.config['SECRET_KEY'] = '449flaskproject'
 app.config['SESSION_COOKIE_NAME'] = 'inventory_app_session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
@@ -19,9 +17,6 @@ inventory = []
 
 # In-memory data to store users
 users = {}
-
-# In-memory data to store session
-#session = {}
 
 # Helper function to find item by item_id
 def find_item(item_id):
@@ -40,7 +35,7 @@ def token_required(f):
         token = request.headers.get('x-access-token')
 
         if not token:
-            return jsonify({'message': 'Token is invalid!'}), 401
+            return jsonify({'message': 'Token is missing!'}), 401
         
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
@@ -60,24 +55,20 @@ def register():
 
     username = request.json['username']
     password = request.json['password']
-    role = request.json.get('role', 'user')  # default to 'user'
-
+    # role = request.json.get('role', 'user')  # default to 'user'
+    
+    if username in users:
+        return jsonify({'error': 'User already exists'}), 400
+    
     if not isinstance(username, str):
         return jsonify({'error': 'Username must be a string'}), 400
 
     if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         return jsonify({'error': 'Password must contain a special character and be at least 8 characters long.'}), 400
 
-    if username in users:
-        return jsonify({'error': 'User already exists'}), 400
+    users[username] = password
 
-    # ✅ Store user as a dictionary with password and role
-    users[username] = {
-        'password': password,
-        'role': role
-    }
-
-    return jsonify({'message': f'User has been successfully registered as {role}'}), 201
+    return jsonify({'message': 'User has been successfully registered'}), 201
 
 
 # User login endpoint and get a JWT token
@@ -89,31 +80,19 @@ def login():
     username = request.json['username']
     password = request.json['password']
 
-    user = users.get(username)
-
-    if not user or user['password'] != password:
+    if users.get(username) != password:
         return jsonify({'error': 'Invalid username or password'}), 401
-
-    role = user.get('role', 'user')  # Default to 'user' if somehow missing
-    session['username'] = username
-    session.permanent = True
-
-    response_data = {'message': f'{role.capitalize()} login successful'}
-
-    # 🔐 If admin, generate JWT token
-    if role == 'admin':
-        token = jwt.encode(
-            {'username': username, 'role': role},
+    
+    token = jwt.encode(
+            {'username': username, 'exp': datetime.datetime.now(datetime.timezone.utc) + timedelta(minutes=30)},
             app.config['SECRET_KEY'],
             algorithm='HS256'
         )
-        response_data['token'] = token
-
-    response = jsonify(response_data)
+    session['user'] = username # Store user session
+    response = jsonify({'message': 'Login sucessful', 'token': token})
     response.set_cookie('username', username, httponly=True, max_age=1800)
 
     return response, 200
-
 
 
 # User logout endpoint and clears session and removes cookies
@@ -124,29 +103,36 @@ def logout():
     response.set_cookie('username', '', expires=0)  # Clear session cookie
     return response, 200
 
+
 # Middleware
 @app.before_request
 def require_login():
     allowed_routes = ['login', 'register']  # Routes that don't require authentication
-    if request.endpoint not in allowed_routes and 'username' not in session:
+    if request.endpoint not in allowed_routes and 'user' not in session:
         return jsonify({'error': 'Unauthorized access. Please log in to view this resource.'}), 401
+
 
 # Get all items in inventory (logged in only)
 @app.route('/inventory', methods=['GET'])
-def get_items():
+@token_required
+def get_items(current_user):
     return jsonify(inventory)
+
 
 # Get a single item by item_id (logged in only)
 @app.route('/inventory/<int:item_id>', methods=['GET'])
-def get_item(item_id):
+@token_required
+def get_item(current_user, item_id):
     item = find_item(item_id)
     if item is None:
         return jsonify({'error': 'Item not found'}), 404
     return jsonify(item)
 
+
 # Create a new item (logged in only)
 @app.route('/inventory', methods=['POST'])
-def create_item():
+@token_required
+def create_item(current_user):
     required_fields = ['name', 'description', 'quantity', 'price']
     if not request.json or not all(field in request.json for field in required_fields):
         return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float)'}), 400
@@ -172,9 +158,11 @@ def create_item():
     inventory.append(item)
     return jsonify(item), 201
 
+
 # Update an item (logged in only)
 @app.route('/inventory/<int:item_id>', methods=['PUT'])
-def update_item(item_id):
+@token_required
+def update_item(current_user, item_id):
     item = find_item(item_id)
     if item is None:
         return jsonify({'error': 'Item not found'}), 404
@@ -194,14 +182,17 @@ def update_item(item_id):
     item.update(request.json)
     return jsonify(item)
 
+
 # Delete an item by item_id (logged in only)
 @app.route('/inventory/<int:item_id>', methods=['DELETE'])
-def delete_item(item_id):
+@token_required
+def delete_item(current_user, item_id):
     item = find_item(item_id)
     if item is None:
         return jsonify({'error': 'Item not found'}), 404
     inventory.remove(item)
     return jsonify({'message': 'Item successfully deleted'}), 200
+
 
 # Run the Flask app
 if __name__ == '__main__':
