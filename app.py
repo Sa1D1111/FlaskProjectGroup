@@ -51,11 +51,12 @@ def token_required(f):
 # User registration endpoint
 @app.route('/register', methods=['POST'])
 def register():
-    if not request.json or 'username' not in request.json or 'password' not in request.json:
-        return jsonify({'error': 'Username and password are required'}), 400
+    if not request.json or 'username' not in request.json or 'password' not in request.json or 'email' not in request.json:
+        return jsonify({'error': 'Username, password, and email are required'}), 400
 
     username = request.json['username']
     password = request.json['password']
+    email = request.json['email']
     
     if username in users:
         return jsonify({'error': 'User already exists'}), 400
@@ -65,6 +66,9 @@ def register():
 
     if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         return jsonify({'error': 'Password must contain a special character and be at least 8 characters long.'}), 400
+    
+    if not is_valid_email(email):
+        return jsonify({'error': 'Email is not in format user@email.com'}), 400
 
     users[username] = password
 
@@ -116,9 +120,6 @@ def require_login():
 @app.route('/inventory', methods=['GET'])
 @token_required
 def get_items(current_user):
-    # items = inventory.get(current_user)
-    # new_items = [item for item in items if item.get("user") == current_user]
-    # return jsonify(new_items)
     return jsonify(inventory.get(current_user, []))
 
 
@@ -138,7 +139,7 @@ def get_item(current_user, item_id):
 def create_item(current_user):
     required_fields = ['name', 'description', 'quantity', 'price', 'brand', 'condition']
     if not request.json or not all(field in request.json for field in required_fields):
-        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition(new or used)'}), 400
+        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition (new or used)'}), 400
 
     if not isinstance(request.json['name'], str):
         return jsonify({'error': 'Name must be a string'}), 400
