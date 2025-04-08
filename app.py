@@ -116,6 +116,9 @@ def require_login():
 @app.route('/inventory', methods=['GET'])
 @token_required
 def get_items(current_user):
+    # items = inventory.get(current_user)
+    # new_items = [item for item in items if item.get("user") == current_user]
+    # return jsonify(new_items)
     return jsonify(inventory.get(current_user, []))
 
 
@@ -192,7 +195,6 @@ def update_item(current_user, item_id):
         return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if 'price' in request.json and not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
-    
     if 'condition' in request.json and not isinstance(request.json['condition'], str):
         return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
 
