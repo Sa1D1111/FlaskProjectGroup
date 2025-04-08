@@ -29,6 +29,11 @@ def find_item(user, item_id):
 def is_valid_email(email):
     return re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email)
 
+def validate_date(date):
+    if not re.match(r'^(0[1-9]|1[0-2])/([0][1-9]|[12][0-9]|3[01])/(\d{4})$', date):
+        return False
+    return True
+
 # Helper function to check if the request has a valid JWT token
 def token_required(f):
     @wraps(f)
@@ -137,9 +142,9 @@ def get_item(current_user, item_id):
 @app.route('/inventory', methods=['POST'])
 @token_required
 def create_item(current_user):
-    required_fields = ['name', 'description', 'quantity', 'price', 'brand', 'condition']
+    required_fields = ['name', 'description', 'quantity', 'price', 'brand', 'condition', 'maintenance']
     if not request.json or not all(field in request.json for field in required_fields):
-        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition (new or used)'}), 400
+        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition (new or used), maintenance (MM/DD/YYYY)'}), 400
 
     if not isinstance(request.json['name'], str):
         return jsonify({'error': 'Name must be a string'}), 400
@@ -153,6 +158,8 @@ def create_item(current_user):
         return jsonify({'error': 'Price must be a floating point number'}), 400
     if not isinstance(request.json['condition'], str):
         return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
+    if not validate_date(request.json['maintenance']):
+        return jsonify({'error': 'Date must be in format MM/DD/YYYY'}), 400
     
     # Handle first time item creation by a user
     if current_user not in inventory:
@@ -168,7 +175,8 @@ def create_item(current_user):
         'description': request.json['description'],
         'quantity': request.json['quantity'],
         'price': request.json['price'],
-        'condition': request.json['condition']
+        'condition': request.json['condition'],
+        'maintenance': request.json['maintenance']
     }
 
     user_inventory.append(item)
@@ -188,7 +196,7 @@ def update_item(current_user, item_id):
     
     if 'name' in request.json and not isinstance(request.json['name'], str):
         return jsonify({'error': 'Name must be a string'}), 400
-    if 'condition' in request.json and not isinstance(request.json['brand'], str):
+    if 'brand' in request.json and not isinstance(request.json['brand'], str):
         return jsonify({'error': 'Brand must be a string'}), 400
     if 'description' in request.json and not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
@@ -198,6 +206,8 @@ def update_item(current_user, item_id):
         return jsonify({'error': 'Price must be a floating point number'}), 400
     if 'condition' in request.json and not isinstance(request.json['condition'], str):
         return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
+    if 'maintenance' in request.json and not validate_date(request.json['maintenance']):
+        return jsonify({'error': 'Date must be in format MM/DD/YYYY'}), 400
 
     item.update(request.json)
     return jsonify(item)
