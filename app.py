@@ -51,12 +51,12 @@ def token_required(f):
 # User registration endpoint
 @app.route('/register', methods=['POST'])
 def register():
-    if not request.json or 'username' not in request.json or 'password' not in request.json:
-        return jsonify({'error': 'Username and password are required'}), 400
+    if not request.json or 'username' not in request.json or 'password' not in request.json or 'email' not in request.json:
+        return jsonify({'error': 'Username, password, and email are required'}), 400
 
     username = request.json['username']
     password = request.json['password']
-    # role = request.json.get('role', 'user')  # default to 'user'
+    email = request.json['email']
     
     if username in users:
         return jsonify({'error': 'User already exists'}), 400
@@ -66,6 +66,9 @@ def register():
 
     if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         return jsonify({'error': 'Password must contain a special character and be at least 8 characters long.'}), 400
+    
+    if not is_valid_email(email):
+        return jsonify({'error': 'Email is not in format user@email.com'}), 400
 
     users[username] = password
 
@@ -134,18 +137,22 @@ def get_item(current_user, item_id):
 @app.route('/inventory', methods=['POST'])
 @token_required
 def create_item(current_user):
-    required_fields = ['name', 'description', 'quantity', 'price']
+    required_fields = ['name', 'description', 'quantity', 'price', 'brand', 'condition']
     if not request.json or not all(field in request.json for field in required_fields):
-        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float)'}), 400
+        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition (new or used)'}), 400
 
     if not isinstance(request.json['name'], str):
         return jsonify({'error': 'Name must be a string'}), 400
+    if not isinstance(request.json['brand'], str):
+        return jsonify({'error': 'Brand must be a string'}), 400
     if not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
     if not isinstance(request.json['quantity'], int) or not (0 <= request.json['quantity']):
         return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
+    if not isinstance(request.json['condition'], str):
+        return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
     
     # Handle first time item creation by a user
     if current_user not in inventory:
@@ -157,9 +164,11 @@ def create_item(current_user):
     item = {
         'id': item_id,
         'name': request.json['name'],
+        'brand': request.json['brand'],
         'description': request.json['description'],
         'quantity': request.json['quantity'],
-        'price': request.json['price']
+        'price': request.json['price'],
+        'condition': request.json['condition']
     }
 
     user_inventory.append(item)
@@ -179,12 +188,16 @@ def update_item(current_user, item_id):
     
     if 'name' in request.json and not isinstance(request.json['name'], str):
         return jsonify({'error': 'Name must be a string'}), 400
+    if 'condition' in request.json and not isinstance(request.json['brand'], str):
+        return jsonify({'error': 'Brand must be a string'}), 400
     if 'description' in request.json and not isinstance(request.json['description'], str):
         return jsonify({'error': 'Description must be a string'}), 400
     if 'quantity' in request.json and (not isinstance(request.json['quantity'], int) or not (0 <= request.json['quantity'])):
         return jsonify({'error': 'Quantity must be zero or a positive integer'}), 400
     if 'price' in request.json and not isinstance(request.json['price'], float):
         return jsonify({'error': 'Price must be a floating point number'}), 400
+    if 'condition' in request.json and not isinstance(request.json['condition'], str):
+        return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
 
     item.update(request.json)
     return jsonify(item)
