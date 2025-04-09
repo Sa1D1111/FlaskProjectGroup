@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, render_template, redirect, url_for, make_response
+from flask import Flask, request, jsonify, session
 import re
 import datetime
 from functools import wraps
@@ -6,16 +6,14 @@ from datetime import timedelta
 import jwt
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '449flaskproject'
+app.config['SECRET_KEY'] = '449flaskproject' # Usually hidden in a .env
 app.config['SESSION_COOKIE_NAME'] = 'inventory_app_session'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = False
 
-# In-memory data to store inventory
 inventory = {}
 
-# In-memory data to store users
 users = {}
 
 # Helper function to find item by item_id
@@ -26,9 +24,11 @@ def find_item(user, item_id):
             return item
     return None
 
+# Email validation
 def is_valid_email(email):
     return re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email)
 
+# Date validation
 def validate_date(date):
     if not re.match(r'^(0[1-9]|1[0-2])/([0][1-9]|[12][0-9]|3[01])/(\d{4})$', date):
         return False
@@ -49,6 +49,7 @@ def token_required(f):
         except:
             return jsonify({'message': 'Token is invalid!'}), 401
         
+        # current_user is user name after decoding as the first argument, followed by the rest of the route parameters
         return f(current_user, *args, **kwargs)
     
     return decorated
@@ -70,7 +71,7 @@ def register():
         return jsonify({'error': 'Username must be a string'}), 400
 
     if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return jsonify({'error': 'Password must contain a special character and be at least 8 characters long.'}), 400
+        return jsonify({'error': 'Password must contain a special character (e.g. !@#$%^&*(),.?\":{}|<>)and be at least 8 characters long.'}), 400
     
     if not is_valid_email(email):
         return jsonify({'error': 'Email is not in format user@email.com'}), 400
@@ -99,7 +100,7 @@ def login():
         )
     session['user'] = username # Store user session
     response = jsonify({'message': 'Login sucessful', 'token': token})
-    response.set_cookie('username', username, httponly=True, max_age=1800)
+    response.set_cookie('username', username, httponly=True, max_age=3600)
 
     return response, 200
 
@@ -142,9 +143,9 @@ def get_item(current_user, item_id):
 @app.route('/inventory', methods=['POST'])
 @token_required
 def create_item(current_user):
-    required_fields = ['name', 'description', 'quantity', 'price', 'brand', 'condition', 'maintenance']
+    required_fields = ['name', 'description', 'quantity', 'price', 'brand', 'condition', 'last updated']
     if not request.json or not all(field in request.json for field in required_fields):
-        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition (new or used), maintenance (MM/DD/YYYY)'}), 400
+        return jsonify({'error': 'Required fields are: name (string), description (string), quantity (int), price (float), condition (new or used), last updated (MM/DD/YYYY)'}), 400
 
     if not isinstance(request.json['name'], str):
         return jsonify({'error': 'Name must be a string'}), 400
@@ -158,10 +159,11 @@ def create_item(current_user):
         return jsonify({'error': 'Price must be a floating point number'}), 400
     if not isinstance(request.json['condition'], str):
         return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
-    if not validate_date(request.json['maintenance']):
+    if not validate_date(request.json['last updated']):
         return jsonify({'error': 'Date must be in format MM/DD/YYYY'}), 400
     
     # Handle first time item creation by a user
+    # Creates an inventory specific to current_user
     if current_user not in inventory:
         inventory[current_user] = []
 
@@ -176,7 +178,7 @@ def create_item(current_user):
         'quantity': request.json['quantity'],
         'price': request.json['price'],
         'condition': request.json['condition'],
-        'maintenance': request.json['maintenance']
+        'last updated': request.json['last updated']
     }
 
     user_inventory.append(item)
@@ -206,7 +208,7 @@ def update_item(current_user, item_id):
         return jsonify({'error': 'Price must be a floating point number'}), 400
     if 'condition' in request.json and not isinstance(request.json['condition'], str):
         return jsonify({'error': 'Condition must be a string (either new or used)'}), 400
-    if 'maintenance' in request.json and not validate_date(request.json['maintenance']):
+    if 'last updated' in request.json and not validate_date(request.json['last updated']):
         return jsonify({'error': 'Date must be in format MM/DD/YYYY'}), 400
 
     item.update(request.json)
